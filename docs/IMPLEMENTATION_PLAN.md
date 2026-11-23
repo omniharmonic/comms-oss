@@ -1,0 +1,21 @@
+# Comms — Implementation Roadmap
+
+Spec: [PRD.md](PRD.md) · [ARCHITECTURE.md](ARCHITECTURE.md) · [DECISIONS.md](DECISIONS.md)
+
+The work spans three repos and six phases. Each phase produces software the owner can use and gets its own detailed task plan in `docs/superpowers/plans/`, written when the phase starts, so it can use what the previous phase learned. Phases 0–1 are planned in detail now: [plans/2026-11-21-comms-phase-0-1.md](superpowers/plans/2026-11-21-comms-phase-0-1.md).
+
+| Phase | Repos | Delivers | Exit criteria | Depends on |
+|---|---|---|---|---|
+| **0 · Spikes** | comms | Throwaway prototypes: transcript scroll (iOS 26/27 + Mac), Mac composer glass, bubble geometry from Apple's design kits → `design/tokens.json` v0 | Prepending 500 variable-height messages shows no visible jump on iOS 26.x, iOS 27 and macOS. Mac composer frost judged by the owner against Messages. Tokens replace every `[est]` bubble value | — |
+| **1 · Read** | prism, comms | Prism `comms` module (read-only): sign-in client `comms-native` with a restricted grant, projection, normalized timeline (formatting, reactions, edits, replies, previews), names and avatars, media proxy, SSE. PrismKit `CommsClient`. Mac app reads every Matrix conversation live | The owner browses WhatsApp/Telegram/Discord/Messenger/X in Comms on the Mac with correct names, pictures, formatting, reactions, media and link previews, updating within ~2 s. A Comms token is refused on non-Comms routes | 0 |
+| **2 · Reply** | prism, comms | Owner-typed sends, **audio message recording and sending (D15)**, media and file sending, reactions with the full tapback picker, replies, read state with the receipts toggle (D10), **contact cleanup (D17): "Who is this?" link/create/ignore, "Same person?" merge cards from `identity_candidates`, channel write-back to person notes, People-to-tidy ranked by frequency, undo**, outbox and delivery states. iPhone/iPad app. APNs topic `com.example.comms` with urgency rules (§11a) and an NSE for avatars | Owner-typed messages and reactions land on the networks. Pushes arrive with the right interruption level. No send path without a device token. Audit rows record `owner-typed` | 1 |
+| **3 · iMessage** | prism, agent, (Mini) | **Decide first (D6 reopened): a dedicated SIP-off Mac for sending tapbacks.** BlueBubbles on the Mini (SIP on). Agent guard-table fix **in the same release**. `BlueBubblesSource`, `actions/imessage.ts`, vault ingest with ~90-day backfill excluding codes. New iMessage/SMS conversations (D11) | A test SMS and an iMessage round trip from Comms. The guard blocks agent calls to BlueBubbles (tests). iMessage threads are triaged in the vault | 2 |
+| **4 · Omni** | prism, agent, comms | `/threads/:id/assist`, approval payload v2 (`{v:2, channel, body}`), draft bubbles, Approve & Send with biometrics, Refine, Needs you (cards), urgency markers and filters, Draft-with-Omni chips. Triage window fix in the agent repo | An Omni-drafted reply goes out only after an exact-digest approval on WhatsApp and iMessage. A v1 approval is still honoured. Omni never posts into the chat | 2 (3 for iMessage drafts) |
+| **5 · Email** | prism, comms | `EmailSource`, email bubbles (trimmed quotes, full-email sheet), owner-typed email replies and new emails (`ACTIONS_EMAIL_REPLY_ENABLED`), confident per-person merging (D3) with link/unlink, all-history text search (D12) | Email replies thread correctly from the right account. Merged person threads appear only on strong-key matches (property tests). Search finds year-old text | 2 |
+| **6 · Backfill** | prism | `packages/core` messages UI on `/api/comms/*` and `design/tokens.json`, vault `title` naming fix, Omni app renders `message` approvals as bubbles. MESSAGES.md F06–F08 closed, docs updated | Prism web/desktop shows the same names, avatars, reactions and formatting as Comms. MSG01–16 verified closed. Legacy parsing only for uncovered archive ranges | 1, 2 (5 for email) |
+
+**Cross-cutting:**
+- Laptop staging stack: created in Phase 1, Task 1.
+- Flag-gated production canaries: `COMMS_ENABLED`, `COMMS_SYNC_LONGPOLL`, `ACTIONS_IMESSAGE_ENABLED`, `ACTIONS_EMAIL_REPLY_ENABLED`.
+- Synthetic fixtures only.
+- Release flow follows the Prism/Omni runbooks: server via tag + `deploy.sh`; Mac apps signed on the Mini by the owner; iOS via devicectl.

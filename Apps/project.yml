@@ -1,0 +1,231 @@
+name: Comms
+options:
+  minimumXcodeGenVersion: 2.40.0
+  deploymentTarget:
+    macOS: "26.0"
+    iOS: "26.0"
+packages:
+  CommsKit:
+    path: ../CommsKit
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MARKETING_VERSION: "0.3.6"
+    CURRENT_PROJECT_VERSION: "13"
+    DEVELOPMENT_TEAM: ""
+targets:
+  CommsMac:
+    type: application
+    platform: macOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: CommsMac
+    dependencies:
+      - package: CommsKit
+        product: CommsCore
+      - package: CommsKit
+        product: CommsUI
+      # DEBUG demo mode only (Apps/CommsMac/DemoMode.swift is #if DEBUG). Built but not
+      # linked by Xcode (Xcode cannot link a package product per configuration): Debug links
+      # its object file via OTHER_LDFLAGS[config=Debug], so Release carries none of its code
+      # or fixtures.
+      - package: CommsKit
+        product: CommsTestSupport
+        link: false
+    postBuildScripts:
+      - name: Embed demo fixtures (Debug)
+        # Debug only: the demo fixtures ride inside the app (the sandbox cannot read the
+        # build folder). Release never builds them in.
+        script: |
+          if [ "$CONFIGURATION" = "Debug" ]; then
+            mkdir -p "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+            ditto "$BUILT_PRODUCTS_DIR/CommsKit_CommsTestSupport.bundle" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/CommsKit_CommsTestSupport.bundle"
+          fi
+        basedOnDependencyAnalysis: false
+    # Entitlements are two checked-in files (xcodegen's `entitlements:` would force one file on
+    # every configuration): CommsMac.entitlements (Debug) = sandbox, network client, microphone
+    # (audio messages), user-selected read-only files ("+ → Files"); CommsMac-Release.entitlements
+    # = the same plus push and the application identifier (Developer ID profile). Keep in step.
+    settings:
+      base:
+        CODE_SIGN_ENTITLEMENTS: CommsMac/CommsMac.entitlements
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.comms
+        PRODUCT_NAME: Comms
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: NO
+        ENABLE_HARDENED_RUNTIME: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      configs:
+        Debug:
+          OTHER_LDFLAGS: $(inherited) $(BUILT_PRODUCTS_DIR)/CommsTestSupport.o
+        # Release = Developer ID with the "Comms Developer ID" provisioning profile (push +
+        # application identifier). Debug stays automatic / ad hoc (scripts/run-mac-ui-tests.sh
+        # overrides it to "-"), without push or the data-protection keychain.
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Developer ID Application
+          PROVISIONING_PROFILE_SPECIFIER: Comms Developer ID
+          CODE_SIGN_ENTITLEMENTS: CommsMac/CommsMac-Release.entitlements
+          # No get-task-allow in a distributable build (notarization refuses it).
+          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+          OTHER_CODE_SIGN_FLAGS: --timestamp
+    info:
+      path: CommsMac/Info.plist
+      properties:
+        CFBundleDisplayName: Comms
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: "26.0"
+        LSApplicationCategoryType: public.app-category.social-networking
+        NSMicrophoneUsageDescription: Comms records audio messages you choose to send.
+        CFBundleURLTypes:
+          - CFBundleURLName: Comms authentication
+            CFBundleURLSchemes:
+              - comms
+        ITSAppUsesNonExemptEncryption: false
+  CommsMacUITests:
+    # Drives Comms.app (Debug) in demo mode; screenshots go to design/refs/live/mac-*.png.
+    type: bundle.ui-testing
+    platform: macOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: CommsMacUITests
+    dependencies:
+      - target: CommsMac
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.comms.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: CommsMac
+        CODE_SIGN_STYLE: Automatic
+  CommsiOS:
+    # Sign-in, list, transcript, details, and (Phase 2a) sending. DEBUG builds also carry the
+    # demo mode (-CommsDemo YES) for UI tests; Release links none of it.
+    type: application
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: CommsiOS
+    dependencies:
+      - package: CommsKit
+        product: CommsCore
+      - package: CommsKit
+        product: CommsUI
+      # DEBUG demo only, linked and embedded in Debug (see CommsMac).
+      - package: CommsKit
+        product: CommsTestSupport
+        link: false
+    postBuildScripts:
+      - name: Embed demo fixtures (Debug)
+        script: |
+          if [ "$CONFIGURATION" = "Debug" ]; then
+            mkdir -p "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+            ditto "$BUILT_PRODUCTS_DIR/CommsKit_CommsTestSupport.bundle" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/CommsKit_CommsTestSupport.bundle"
+          fi
+        basedOnDependencyAnalysis: false
+    # Push (Sprint Task 1): development for Xcode-signed builds; an App Store / TestFlight
+    # export rewrites it to production.
+    entitlements:
+      path: CommsiOS/CommsiOS.entitlements
+      properties:
+        aps-environment: development
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.comms
+        PRODUCT_NAME: Comms
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Comms
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.social-networking
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        TARGETED_DEVICE_FAMILY: "1,2"
+      configs:
+        Debug:
+          OTHER_LDFLAGS: $(inherited) $(BUILT_PRODUCTS_DIR)/CommsTestSupport.o
+    info:
+      # Merged with the generated keys above. No URL type: ASWebAuthenticationSession hands
+      # the comms://auth/callback redirect straight back to the app, so registering the
+      # scheme would only let other apps' links open Comms.
+      path: CommsiOS/Info.plist
+      properties:
+        CFBundleDisplayName: Comms
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
+        NSMicrophoneUsageDescription: Comms records audio messages you choose to send.
+        NSCameraUsageDescription: Comms takes the photos and videos you choose to send.
+        NSFaceIDUsageDescription: Comms asks for Face ID before it sends a reply Omni drafted for you.
+  CommsiOSUITests:
+    # Launches CommsiOS in demo mode on a simulator; screenshots go to design/refs/live/ios-*.png.
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: CommsiOSUITests
+    dependencies:
+      - target: CommsiOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.comms.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: CommsiOS
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1,2"
+  CommsGallery:
+    # DEBUG-only developer tool (design gallery). Not part of the shipped app.
+    type: application
+    platform: macOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: CommsGallery
+    dependencies:
+      - package: CommsKit
+        product: CommsUI
+      - package: CommsKit
+        product: CommsCore
+      - package: CommsKit
+        product: CommsTestSupport
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.comms.gallery
+        PRODUCT_NAME: CommsGallery
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  CommsMac:
+    build:
+      targets:
+        CommsMac: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - CommsMacUITests
+    archive:
+      config: Release
+  CommsGallery:
+    build:
+      targets:
+        CommsGallery: all
+    run:
+      config: Debug
+  CommsiOS:
+    build:
+      targets:
+        CommsiOS: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - CommsiOSUITests
+    archive:
+      config: Release

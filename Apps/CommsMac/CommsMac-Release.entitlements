@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Release (Developer ID) entitlements: the Debug set (CommsMac.entitlements, generated from
+  project.yml — keep the two in step) plus what the "Comms Developer ID" provisioning profile
+  grants: push (aps-environment production) and the application identifier, which also lets the
+  app use the data-protection keychain (CommsTokenStorage, ruling R20 retired).
+-->
+<plist version="1.0">
+<dict>
+	<key>com.apple.application-identifier</key>
+	<string>$(TeamIdentifierPrefix)com.example.comms</string>
+	<key>com.apple.developer.team-identifier</key>
+	<string>$(DEVELOPMENT_TEAM)</string>
+	<key>com.apple.developer.aps-environment</key>
+	<string>production</string>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(TeamIdentifierPrefix)com.example.comms</string>
+	</array>
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+	<key>com.apple.security.files.user-selected.read-only</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
+	<true/>
+</dict>
+</plist>

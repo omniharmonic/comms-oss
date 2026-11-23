@@ -1,0 +1,2 @@
+# Fixture media token: base64 of {"m":"mxc://example.test/photo",...} signed with a test key, not a credential.
+CommsKit/Sources/CommsTestSupport/Fixtures/comms-messages.json:generic-api-key:118
